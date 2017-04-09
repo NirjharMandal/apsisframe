@@ -1,0 +1,84 @@
+<?php if ( ! defined('BASEPATH')) exit('No direct script access allowed');
+
+class Login_model extends CI_Model {
+
+    function __construct()
+    {
+        parent::__construct();
+        $this->load->library('session');
+    }
+    
+    function validate_user( $user, $password ) {
+        $this->db->from('user');
+        $this->db->where('username', $user );
+        $this->db->where('password', $password);
+        $login = $this->db->get()->result();
+
+        if ( is_array($login) && count($login) == 1 ) {
+            return true;
+        }
+    }
+    function user_info($user,$pass) {
+        $query = $this->db->query("SELECT * FROM user WHERE username='$user' AND password='$pass'");
+        foreach ($query->result_array() as $row)
+            {
+                $data['USER_ID']=$row['user_id'];
+                $data['FIRSTNAME']=$row['first_name'];
+                $data['LASTNAME']=$row['last_name'];
+                $data['default_module_id'] = $row['default_module_id'];
+                // If user is admin then add all level id into SESSION
+                if( $data['USER_ID'] == 1 ){
+                    $query = $this->db->query("SELECT user_level_id FROM user_level");
+                    $level = array();
+                    foreach ($query->result_array() as $value) {
+                        $level[] = $value['user_level_id'];
+                    }
+                    $data['LEVEL_ID'] = $level;
+                }else{
+                    $query = $this->db->query("SELECT user_level_id FROM privilege_level WHERE user_id = '".$data['USER_ID']."'");
+                    $user_level_id = $query->result_array();
+                    $id_array = array();
+                    foreach ($user_level_id as $level){
+                        array_push($id_array, $level['user_level_id']);
+                    }
+                    $data['LEVEL_ID'] = $id_array;
+                    
+                    $query = $this->db->query("SELECT user_module_id FROM privilege_module WHERE user_id = '".$data['USER_ID']."'");
+                    $user_module_id = $query->result_array();
+                    $module_id_array = array();
+                    foreach ($user_module_id as $level){
+                        array_push($module_id_array, $level['user_module_id']);
+                    }
+                    $data['MODULE_ID'] = $module_id_array;
+                    
+                    // Now get and set privilege
+                    
+                }
+                //$data['USER_TYPE_ID']=$row['user_type_id'];
+                $data['LOGIN_TIME']= date('d-m-Y H:i:s');
+                $data['USER_IMAGE']= $row['user_image'];
+            }
+            //print_r($data);
+        $this->session->set_userdata($data);
+        //return $data['USER_ID'];
+        }
+        
+    function forget_action($email,$password){
+        
+        $pass = md5($password);
+        
+        $data = array('password' => $pass);
+        $this->db->where('email',$email);
+        $this->db->update('user',$data);
+        
+        $this->db->select('`user`.user_id,
+                `user`.first_name,
+                `user`.last_name,
+                `user`.email');
+        $this->db->from('user');
+        $this->db->where('email',$email);
+        $query = $this->db->get();
+        return $query->result_array();
+    }
+        
+}
